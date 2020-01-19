@@ -6,7 +6,8 @@ import {
     TextDocument,
     Diagnostic,
     DiagnosticSeverity,
-    DidChangeConfigurationParams
+    DidChangeConfigurationParams,
+    DidChangeConfigurationNotification
 } from 'vscode-languageserver';
 
 import { basename } from 'path';
@@ -20,14 +21,45 @@ let conn = createConnection(ProposedFeatures.all);
 let docs = new TextDocuments();
 let conf: ExampleConfiguration | undefined = undefined;
 
+
+let hasConfigurationCapability: boolean = false;
+let hasWorkspaceFolderCapability: boolean = false;
+let hasDiagnosticRelatedInformationCapability: boolean = false;
+
 conn.onInitialize((params: InitializeParams) => {
+    let capabilities = params.capabilities;
+
+    // Does the client support the `workspace/configuration` request?
+    // If not, we will fall back using global settings
+    hasConfigurationCapability = !!capabilities.workspace && !!capabilities.workspace.configuration;
+    hasWorkspaceFolderCapability = !!capabilities.workspace && !!capabilities.workspace.workspaceFolders;
+    hasDiagnosticRelatedInformationCapability = !!capabilities.textDocument &&
+      !!capabilities.textDocument.publishDiagnostics &&
+      !!capabilities.textDocument.publishDiagnostics.relatedInformation;
+  
     return {
-        capabilities: {
-            textDocumentSync: 'always'
+      capabilities: {
+        textDocumentSync: docs.syncKind,
+        // Tell the client that the server supports code completion
+        completionProvider: {
+          resolveProvider: true
         }
+      }
     };
 });
 
+conn.onInitialized(() => {
+    if (hasConfigurationCapability) {
+      // Register for all configuration changes.
+      conn.client.register(DidChangeConfigurationNotification.type, undefined);
+    }
+    if (hasWorkspaceFolderCapability) {
+        conn.workspace.onDidChangeWorkspaceFolders(_event => {
+        conn.console.log('Workspace folder change event received.');
+      });
+    }
+  });
+  
 function GetSeverity(key: RuleKeys): DiagnosticSeverity | undefined {
     if (!conf || !conf.severity) {
         return undefined;
@@ -63,7 +95,7 @@ function GetMessage(key: RuleKeys): string {
 
 async function validateTextDocument(textDocument: TextDocument): Promise<void> {
     const source = basename(textDocument.uri);
-    const json = textDocument.uri;
+    const json = textDocument.getText();
 
     const validateObject = (
         obj: jsonToAst.AstObject
