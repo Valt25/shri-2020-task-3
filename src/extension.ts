@@ -15,7 +15,7 @@ import {
 const serverBundleRelativePath = join('out', 'server.js');
 const previewPath: string = resolve( __dirname, '../preview/index.html');
 const previewHtml: string = readFileSync(previewPath).toString();
-const template = bemhtml.compile()
+const template = bemhtml.compile();
 
 let client: LanguageClient;
 const PANELS: Record<string, vscode.WebviewPanel> = {};
@@ -74,7 +74,7 @@ const initPreviewPanel = (document: vscode.TextDocument) => {
     const e = panel.onDidDispose(() => 
     {
         delete PANELS[key];
-        e.dispose()
+        e.dispose();
     });
 
     return panel;
@@ -114,7 +114,9 @@ const openPreview = (context: vscode.ExtensionContext) => {
 
         const panel = PANELS[key];
 
-        if (panel) panel.reveal();
+        if (panel) {
+            panel.reveal();
+        }
         else {
             const panel = initPreviewPanel(document);
             updateContent(document, context);
@@ -128,7 +130,7 @@ export function activate(context: vscode.ExtensionContext) {
     console.info('Congratulations, your extension is now active!');
 
     client = createLanguageClient(context);
-    
+
     context.subscriptions.push(new SettingMonitor(client, 'example.enable').start());
 
     const eventChange: vscode.Disposable = vscode.workspace
